@@ -1,0 +1,16 @@
+node_modules/
+dist/
+*.js.map
+*.d.ts.map
+
+# Data directory (user-specific)
+data/hauntings/
+
+# Environment / secrets
+.env
+.env.local
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db

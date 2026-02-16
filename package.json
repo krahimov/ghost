@@ -1,0 +1,38 @@
+{
+  "name": "ghost",
+  "version": "0.1.0",
+  "description": "Autonomous, always-on research agent that compounds knowledge over time",
+  "type": "module",
+  "bin": {
+    "ghost": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.44",
+    "better-sqlite3": "^11.7.0",
+    "commander": "^13.1.0",
+    "inquirer": "^12.4.0",
+    "node-cron": "^3.0.3",
+    "yaml": "^2.7.0",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/inquirer": "^9.0.7",
+    "@types/node": "^22.13.4",
+    "@types/node-cron": "^3.0.11",
+    "tsup": "^8.3.6",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
