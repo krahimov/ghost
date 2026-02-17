@@ -7,38 +7,67 @@ function buildResearchPrompt(
   haunting: Haunting,
   plan: string,
   journal: string,
+  context: string,
+  purpose: string,
 ): string {
   const seedQueries = haunting.config.research.search_queries_base;
 
-  return `You are researching the topic: "${haunting.config.name}"
+  let prompt = `You are researching the topic: "${haunting.config.name}"
 Description: ${haunting.config.description}
+`;
 
-## Current Research Plan
+  if (context) {
+    prompt += `
+## Researcher Context (who you're researching for)
+${context}
+`;
+  }
+
+  if (purpose) {
+    prompt += `
+## Research Purpose (why this topic matters)
+${purpose}
+`;
+  }
+
+  prompt += `
+## Current Research Plan (YOUR PRIMARY GUIDE — read this first)
 ${plan}
 
 ## Existing Knowledge (don't re-research what's already known)
 ${journal.slice(0, 8000)}
+`;
 
-## Seed Search Queries
+  if (seedQueries.length > 0) {
+    prompt += `
+## Seed Queries (optional starting points — generate your own focused queries from the plan)
 ${seedQueries.map((q) => `- ${q}`).join("\n")}
+`;
+  }
 
+  prompt += `
 ## Instructions
-1. Read the plan above and identify the top priority items to research this cycle.
-2. Generate diverse search queries and execute them.
-3. For each significant finding, save a structured JSON file to the current directory (sources/).
-4. Research depth: ${haunting.config.research.depth}
-5. Target: find up to ${haunting.config.research.max_sources_per_cycle} significant sources.
-6. Save each finding as src_<short_hash>.json in the current directory.
+1. Read the plan above FIRST — the "Next" and "In Progress" items are your research priorities.
+2. For each priority, generate 3-5 focused, specific search queries (under 10 words each).
+3. Execute searches and fetch promising results.
+4. Save each significant finding as a JSON file in the current directory (sources/).
+5. Research depth: ${haunting.config.research.depth}
+6. Target: find up to ${haunting.config.research.max_sources_per_cycle} significant sources.
+7. Save each finding as src_<short_hash>.json in the current directory.
 
-Focus on the "Next" and "In Progress" items from the plan. Be thorough but efficient.`;
+DO NOT use the raw topic name or description as a search query. Derive focused queries from the plan.`;
+
+  return prompt;
 }
 
 export async function runResearch(
   haunting: Haunting,
   plan: string,
   journal: string,
+  context: string,
+  purpose: string,
 ): Promise<void> {
-  const prompt = buildResearchPrompt(haunting, plan, journal);
+  const prompt = buildResearchPrompt(haunting, plan, journal, context, purpose);
 
   logger.info(`[researcher] Starting research for "${haunting.config.name}"`);
 
@@ -50,7 +79,7 @@ export async function runResearch(
         allowedTools: ["WebSearch", "WebFetch", "Bash", "Read", "Write"],
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
-        maxTurns: 50,
+        maxTurns: 25,
         cwd: haunting.sourcesDir,
       },
     })) {

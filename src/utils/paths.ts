@@ -21,14 +21,20 @@ export function getDbPath(): string {
   return path.join(getGhostHome(), "ghost.db");
 }
 
-export function slugify(text: string): string {
-  return text
+export function slugify(text: string, maxLength = 60): string {
+  let slug = text
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, "")
     .replace(/[\s_]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+  if (slug.length > maxLength) {
+    slug = slug.slice(0, maxLength).replace(/-+$/, "");
+  }
+
+  return slug;
 }
 
 export function ensureDir(dir: string): void {

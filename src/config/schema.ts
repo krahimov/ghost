@@ -8,12 +8,12 @@ export const GlobalConfigSchema = z.object({
   ghost: z
     .object({
       home: z.string().default("~/.ghost"),
-      default_model: z.string().default("claude-sonnet-4-5-20250929"),
+      default_model: z.string().default("claude-opus-4-6"),
       log_level: z.enum(["debug", "info", "warn", "error"]).default("info"),
     })
     .default({
       home: "~/.ghost",
-      default_model: "claude-sonnet-4-5-20250929",
+      default_model: "claude-opus-4-6",
       log_level: "info",
     }),
   notifications: z

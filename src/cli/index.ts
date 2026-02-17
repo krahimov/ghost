@@ -9,6 +9,9 @@ import { daemonCommand } from "./daemon.js";
 import { journalCommand } from "./journal.js";
 import { planCommand } from "./plan.js";
 import { pauseCommand, resumeCommand } from "./pause.js";
+import { contextCommand } from "./context.js";
+import { reportCommand } from "./report.js";
+import { peekCommand } from "./peek.js";
 
 export function createProgram(): Command {
   const program = new Command();
@@ -31,6 +34,9 @@ export function createProgram(): Command {
   program.addCommand(planCommand);
   program.addCommand(pauseCommand);
   program.addCommand(resumeCommand);
+  program.addCommand(contextCommand);
+  program.addCommand(reportCommand);
+  program.addCommand(peekCommand);
 
   return program;
 }

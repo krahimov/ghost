@@ -3,7 +3,7 @@ import type { GlobalConfig, HauntingConfig } from "./schema.js";
 export const DEFAULT_GLOBAL_CONFIG: GlobalConfig = {
   ghost: {
     home: "~/.ghost",
-    default_model: "claude-sonnet-4-5-20250929",
+    default_model: "claude-opus-4-6",
     log_level: "info",
   },
   notifications: {

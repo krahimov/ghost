@@ -15,9 +15,11 @@ export async function runReflector(
 Read:
 - journal.md (current journal with many observations)
 - reflections.md (existing reflections, if any)
+- context.md (researcher context — who the user is, if it exists)
+- purpose.md (research purpose — why this topic matters to the user, if it exists)
 
 Then:
-1. Write an updated reflections.md that synthesizes older observations into themes and patterns
+1. Write an updated reflections.md that synthesizes older observations into themes aligned with the user's strategic interests
 2. Write a trimmed journal.md that only keeps the most recent observations
 
 Current journal length: ${journal.length} characters (~${Math.round(journal.length / 4)} tokens)
@@ -52,7 +54,6 @@ Current reflections length: ${reflections.length} characters`;
     throw err;
   }
 
-  // The agent has written both files directly
   return {
     updatedReflections: readReflections(haunting),
     trimmedJournal: readJournal(haunting),

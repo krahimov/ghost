@@ -1,6 +1,7 @@
 import { Command } from "commander";
 import { loadHaunting, listHauntings } from "../memory/haunting.js";
 import { runCycle } from "../core/cycle.js";
+import { printCycleReport, generateReport } from "../core/report.js";
 import { logger } from "../utils/logger.js";
 
 export const runCommand = new Command("run")
@@ -24,9 +25,9 @@ export const runCommand = new Command("run")
         console.log(`\n--- ${haunting.config.name} ---`);
         try {
           const result = await runCycle(haunting);
-          console.log(
-            `✅ Done: ${result.observationsAdded} observations, reflected: ${result.reflected}`,
-          );
+          printCycleReport(haunting, result);
+          const reportPath = generateReport(haunting, result);
+          console.log(`📄 Report saved: ${reportPath}\n`);
         } catch (err) {
           console.error(`❌ Failed: ${err}`);
         }
@@ -54,14 +55,12 @@ export const runCommand = new Command("run")
       );
       const result = await runCycle(haunting);
 
-      console.log(`\n✅ Cycle complete!`);
-      console.log(`   Observations added: ${result.observationsAdded}`);
-      console.log(`   Reflected: ${result.reflected}`);
-      console.log(`   Plan updated: ${result.planUpdated}`);
-      console.log(`   Notifications sent: ${result.notificationsSent}`);
-      if (result.error) {
-        console.log(`   ⚠️  Error: ${result.error}`);
-      }
+      // Display full report
+      printCycleReport(haunting, result);
+
+      // Save report to file
+      const reportPath = generateReport(haunting, result);
+      console.log(`📄 Report saved: ${reportPath}\n`);
     } catch (err) {
       console.error(`Error: ${err}`);
       process.exit(1);

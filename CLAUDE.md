@@ -23,6 +23,7 @@ Read `docs/architecture.md` for the full system design, component specs, agent p
 2. **Separation of agent roles**: Researcher, Observer, Reflector, and Planner each run as separate `query()` calls with their own system prompts. Never combine them.
 3. **File-based agent context**: Agents read/write files in the haunting directory. The SDK handles context management. Don't try to manage token budgets manually.
 4. **Observer triggers per research cycle**, not per token threshold (unlike Mastra's OM which triggers on conversation length).
+5. **Context-aware research**: Every agent receives the user's researcher context (`context.md`) and per-haunting research purpose (`purpose.md`). These files transform Ghost from a generic researcher into a personal analyst who understands the user's strategic position, priorities, and competitive landscape. Priority assignments, search queries, plan objectives, and reflections are all calibrated to what matters to THIS user.
 
 ## Project Structure
 
@@ -43,7 +44,7 @@ ghost/
 │   │   ├── observer.ts          # Observer agent (Tier 2)
 │   │   ├── reflector.ts         # Reflector agent (Tier 3)
 │   │   └── planner.ts           # Planner agent
-│   ├── memory/                  # File and DB operations
+│   ├── memory/                  # File and DB operations (incl. context.ts for context.md + purpose.md)
 │   ├── notifications/           # Notification dispatch
 │   └── prompts/                 # System prompts for each agent role
 ├── tests/

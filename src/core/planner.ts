@@ -16,11 +16,13 @@ Read:
 - journal.md (recent observations)
 - reflections.md (accumulated knowledge)
 - plan.md (current plan)
+- context.md (researcher context — who the user is, if it exists)
+- purpose.md (research purpose — why this topic matters to the user, if it exists)
 
 Then write the updated plan.md with:
 - Completed items marked as done
-- New objectives generated from findings
-- Priorities reordered based on current knowledge state`;
+- New objectives generated from findings, framed for the user's specific needs
+- Priorities reordered based on strategic importance to the user`;
 
   logger.info(`[planner] Updating plan for "${haunting.config.name}"`);
 
@@ -51,6 +53,5 @@ Then write the updated plan.md with:
     throw err;
   }
 
-  // The agent has written the updated plan.md directly
   return readPlan(haunting);
 }

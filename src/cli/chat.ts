@@ -2,9 +2,10 @@ import * as readline from "node:readline";
 import { Command } from "commander";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { loadHaunting } from "../memory/haunting.js";
-import { readJournal } from "../memory/journal.js";
+import { readJournal, parseObservations } from "../memory/journal.js";
 import { readReflections } from "../memory/reflections.js";
 import { readPlan } from "../memory/plan.js";
+import { readContext, readPurpose } from "../memory/context.js";
 import { logger } from "../utils/logger.js";
 
 function buildChatSystemPrompt(
@@ -12,11 +13,28 @@ function buildChatSystemPrompt(
   journal: string,
   reflections: string,
   plan: string,
+  context: string,
+  purpose: string,
+  sourceIndex: string,
 ): string {
-  return `You are Ghost, a research analyst who has been continuously tracking the topic "${hauntingName}".
+  let prompt = `You are Ghost, a personal research analyst who has been continuously tracking the topic "${hauntingName}".
+`;
 
-You have accumulated the following knowledge through systematic research:
+  if (context) {
+    prompt += `
+## Who You're Working For
+${context}
+`;
+  }
 
+  if (purpose) {
+    prompt += `
+## Why This Research Matters
+${purpose}
+`;
+  }
+
+  prompt += `
 ## Reflections (High-level patterns and synthesis)
 ${reflections}
 
@@ -25,14 +43,58 @@ ${journal}
 
 ## Current Research Plan
 ${plan}
+`;
+
+  if (sourceIndex) {
+    prompt += `
+## Source Index
+The following sources were used across all observations. Use these to cite your answers:
+${sourceIndex}
+`;
+  }
+
+  prompt += `
+## Response Guidelines
 
 When answering questions:
+- You understand the user's strategic position and frame answers accordingly
 - Draw on your accumulated knowledge to provide informed, specific answers
-- Cite specific observations and sources when making claims
+- **ALWAYS cite sources** when making claims. Use the format [Source: URL] or reference the observation date
+- When multiple sources support a claim, cite all of them
 - Synthesize across multiple observations to identify patterns and trends
+- Connect findings to the user's specific work, product, or strategic situation
 - Be honest about what you don't know or what hasn't been researched yet
 - Suggest what to research next if the question reveals a knowledge gap
-- You can read files from the haunting directory for additional details if needed`;
+- You can answer strategic questions like "what are the biggest threats to our approach?" or "where are the market gaps?"
+- You can read files from the haunting directory for additional details (reports/, history/)
+- At the end of detailed answers, include a "Sources:" section listing all URLs referenced`;
+
+  return prompt;
+}
+
+function buildSourceIndex(journal: string): string {
+  const observations = parseObservations(journal);
+  if (observations.length === 0) return "";
+
+  const sourceMap = new Map<string, string[]>();
+  for (const obs of observations) {
+    if (!sourceMap.has(obs.source)) {
+      sourceMap.set(obs.source, []);
+    }
+    sourceMap.get(obs.source)!.push(`${obs.title} (${obs.date}, ${obs.priority})`);
+  }
+
+  let index = "";
+  let i = 1;
+  for (const [source, titles] of sourceMap) {
+    index += `[${i}] ${source}\n`;
+    for (const title of titles) {
+      index += `    - ${title}\n`;
+    }
+    i++;
+  }
+
+  return index;
 }
 
 export const chatCommand = new Command("chat")
@@ -44,15 +106,31 @@ export const chatCommand = new Command("chat")
       const journal = readJournal(haunting);
       const reflections = readReflections(haunting);
       const plan = readPlan(haunting);
+      const context = readContext();
+      const purpose = readPurpose(haunting);
+      const sourceIndex = buildSourceIndex(journal);
+
+      const observations = parseObservations(journal);
 
       console.log(`\n👻 Ghost Chat — "${haunting.config.name}"`);
-      console.log(`Type your questions. Type "exit" or "quit" to leave.\n`);
+      console.log(`   Knowledge: ${observations.length} observations`);
+      if (context) console.log(`   Context: loaded`);
+      if (purpose) console.log(`   Purpose: loaded`);
+      if (sourceIndex) {
+        const sourceCount = (sourceIndex.match(/^\[\d+\]/gm) || []).length;
+        console.log(`   Sources: ${sourceCount} indexed`);
+      }
+      console.log(`\nType your questions. Type "exit" or "quit" to leave.`);
+      console.log(`Tip: Ask "what did you find?" or "what are the key threats?"\n`);
 
       const systemPrompt = buildChatSystemPrompt(
         haunting.config.name,
         journal,
         reflections,
         plan,
+        context,
+        purpose,
+        sourceIndex,
       );
 
       const rl = readline.createInterface({
