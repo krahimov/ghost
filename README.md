@@ -1,12 +1,12 @@
-# Ghost
+# GhostBot 
 
-Autonomous, always-on research agent that compounds knowledge over time. Unlike one-shot research tools, Ghost continuously investigates topics over days and weeks, building a layered knowledge base with observations, reflections, and strategic insights.
+GhostBot is an autonomous, always-on research agent that never sleeps and compounds knowledge over time. Unlike one-shot research tools, GhostBot continuously investigates topics over days and weeks, building a layered knowledge base with observations, reflections, and strategic insights.
 
 Built on the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk).
 
 ## How It Works
 
-Ghost runs **persistent research missions** called **hauntings**. Each haunting follows a research cycle:
+GhostBot runs **persistent research missions** called **hauntings**. Each haunting follows a research cycle:
 
 1. **Research** — Searches the web and fetches sources using Claude Agent SDK
 2. **Observe** — Processes raw sources into prioritized observations (journal.md)
@@ -43,7 +43,7 @@ npm link
 ghost init
 ```
 
-This creates `~/.ghost/` with a config file and database. You'll be prompted to set up a **researcher context** — this tells Ghost who you are, what you're building, and what kind of research matters to you.
+This creates `~/.ghost/` with a config file and database. You'll be prompted to set up a **researcher context** — this tells GhostBot who you are, what you're building, and what kind of research matters to you.
 
 ### Create a Haunting
 
@@ -57,7 +57,7 @@ Interactive prompts will ask for:
 - **Schedule** — hourly, daily, or weekly
 - **Context** — Use existing, create new per-project context, or skip
 
-Ghost auto-generates seed search queries and a purpose.md connecting the topic to your strategic context.
+GhostBot auto-generates seed search queries and a purpose.md connecting the topic to your strategic context.
 
 To run the first cycle immediately:
 
@@ -121,7 +121,7 @@ ghost daemon stop     # Stop the daemon
 
 ## Researcher Context
 
-Ghost uses two levels of context to personalize research:
+GhostBot uses two levels of context to personalize research:
 
 - **Global context** (`~/.ghost/context.md`) — Who you are, what you're building, your strategic position
 - **Per-haunting context** (`<haunting>/context.md`) — Project-specific identity, overrides global
