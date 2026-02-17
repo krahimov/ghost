@@ -1,5 +1,3 @@
-import fs from "node:fs";
-import path from "node:path";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { Haunting } from "../memory/haunting.js";
 import { readJournal } from "../memory/journal.js";
@@ -13,10 +11,8 @@ export async function runObserver(
   context: string,
   purpose: string,
 ): Promise<string> {
-  // Write context.md into the haunting directory so the agent can read it
-  if (context) {
-    fs.writeFileSync(path.join(haunting.path, "context.md"), context, "utf-8");
-  }
+  // context.md now lives in the haunting directory (per-project)
+  // No need to copy it — it's already there
 
   const prompt = `Process the new research results and update the journal.
 
@@ -45,7 +41,8 @@ Has purpose: ${purpose ? "yes" : "no"}`;
         allowedTools: ["Read", "Write", "Glob"],
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
-        maxTurns: 30,
+        model: "claude-opus-4-6",
+        maxTurns: 15,
         cwd: haunting.path,
       },
     })) {

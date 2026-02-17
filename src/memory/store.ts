@@ -34,6 +34,10 @@ export function getDatabase(): Database.Database {
       relevance REAL,
       summary TEXT,
       raw_excerpt TEXT,
+      key_claims TEXT,
+      entities TEXT,
+      strategic_relevance TEXT,
+      cycle_id INTEGER,
       FOREIGN KEY (haunting_id) REFERENCES hauntings(id)
     );
 
@@ -74,6 +78,21 @@ export function getDatabase(): Database.Database {
     );
   `);
 
+  // Migration: add columns that might not exist in older databases
+  const migrations = [
+    "ALTER TABLE sources ADD COLUMN key_claims TEXT",
+    "ALTER TABLE sources ADD COLUMN entities TEXT",
+    "ALTER TABLE sources ADD COLUMN strategic_relevance TEXT",
+    "ALTER TABLE sources ADD COLUMN cycle_id INTEGER",
+  ];
+  for (const migration of migrations) {
+    try {
+      db.exec(migration);
+    } catch {
+      // Column already exists — skip
+    }
+  }
+
   logger.debug("Database initialized");
   return db;
 }
@@ -91,6 +110,119 @@ export function registerHaunting(
     )
     .run(id, name, description, new Date().toISOString());
 }
+
+// --- Source persistence ---
+
+export interface SourceRecord {
+  url: string;
+  title: string;
+  source_type?: string;
+  fetched_at: string;
+  relevance?: number;
+  summary?: string;
+  raw_excerpt?: string;
+  key_claims?: string[];
+  entities?: string[];
+  strategic_relevance?: string;
+}
+
+export function insertSource(
+  hauntingId: string,
+  source: SourceRecord,
+  cycleId?: number,
+): void {
+  const database = getDatabase();
+  const id = `${hauntingId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+  database
+    .prepare(
+      `INSERT OR REPLACE INTO sources
+       (id, haunting_id, url, title, source_type, fetched_at, relevance, summary, raw_excerpt, key_claims, entities, strategic_relevance, cycle_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      id,
+      hauntingId,
+      source.url,
+      source.title,
+      source.source_type ?? null,
+      source.fetched_at,
+      source.relevance ?? null,
+      source.summary ?? null,
+      source.raw_excerpt ?? null,
+      source.key_claims ? JSON.stringify(source.key_claims) : null,
+      source.entities ? JSON.stringify(source.entities) : null,
+      source.strategic_relevance ?? null,
+      cycleId ?? null,
+    );
+}
+
+export function getSourcesForHaunting(
+  hauntingId: string,
+  limit = 100,
+): SourceRecord[] {
+  const database = getDatabase();
+  const rows = database
+    .prepare(
+      `SELECT url, title, source_type, fetched_at, relevance, summary, raw_excerpt, key_claims, entities, strategic_relevance
+       FROM sources WHERE haunting_id = ?
+       ORDER BY fetched_at DESC LIMIT ?`,
+    )
+    .all(hauntingId, limit) as any[];
+
+  return rows.map((row) => ({
+    url: row.url,
+    title: row.title,
+    source_type: row.source_type,
+    fetched_at: row.fetched_at,
+    relevance: row.relevance,
+    summary: row.summary,
+    raw_excerpt: row.raw_excerpt,
+    key_claims: row.key_claims ? JSON.parse(row.key_claims) : undefined,
+    entities: row.entities ? JSON.parse(row.entities) : undefined,
+    strategic_relevance: row.strategic_relevance,
+  }));
+}
+
+export function searchSources(
+  hauntingId: string,
+  searchTerm: string,
+  limit = 20,
+): SourceRecord[] {
+  const database = getDatabase();
+  const pattern = `%${searchTerm}%`;
+  const rows = database
+    .prepare(
+      `SELECT url, title, source_type, fetched_at, relevance, summary, raw_excerpt, key_claims, entities, strategic_relevance
+       FROM sources WHERE haunting_id = ?
+       AND (title LIKE ? OR summary LIKE ? OR raw_excerpt LIKE ? OR key_claims LIKE ?)
+       ORDER BY relevance DESC LIMIT ?`,
+    )
+    .all(hauntingId, pattern, pattern, pattern, pattern, limit) as any[];
+
+  return rows.map((row) => ({
+    url: row.url,
+    title: row.title,
+    source_type: row.source_type,
+    fetched_at: row.fetched_at,
+    relevance: row.relevance,
+    summary: row.summary,
+    raw_excerpt: row.raw_excerpt,
+    key_claims: row.key_claims ? JSON.parse(row.key_claims) : undefined,
+    entities: row.entities ? JSON.parse(row.entities) : undefined,
+    strategic_relevance: row.strategic_relevance,
+  }));
+}
+
+export function getSourceCount(hauntingId: string): number {
+  const database = getDatabase();
+  const row = database
+    .prepare(`SELECT COUNT(*) as count FROM sources WHERE haunting_id = ?`)
+    .get(hauntingId) as { count: number };
+  return row.count;
+}
+
+// --- Cycle logging ---
 
 export function logCycleStart(hauntingId: string): number {
   const database = getDatabase();

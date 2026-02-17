@@ -12,6 +12,7 @@ import { pauseCommand, resumeCommand } from "./pause.js";
 import { contextCommand } from "./context.js";
 import { reportCommand } from "./report.js";
 import { peekCommand } from "./peek.js";
+import { deleteCommand } from "./delete.js";
 
 export function createProgram(): Command {
   const program = new Command();
@@ -37,6 +38,7 @@ export function createProgram(): Command {
   program.addCommand(contextCommand);
   program.addCommand(reportCommand);
   program.addCommand(peekCommand);
+  program.addCommand(deleteCommand);
 
   return program;
 }

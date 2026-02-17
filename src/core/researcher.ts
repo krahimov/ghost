@@ -46,16 +46,27 @@ ${seedQueries.map((q) => `- ${q}`).join("\n")}
   }
 
   prompt += `
-## Instructions
-1. Read the plan above FIRST — the "Next" and "In Progress" items are your research priorities.
-2. For each priority, generate 3-5 focused, specific search queries (under 10 words each).
-3. Execute searches and fetch promising results.
-4. Save each significant finding as a JSON file in the current directory (sources/).
-5. Research depth: ${haunting.config.research.depth}
-6. Target: find up to ${haunting.config.research.max_sources_per_cycle} significant sources.
-7. Save each finding as src_<short_hash>.json in the current directory.
+## Instructions — FOLLOW THIS EXACT WORKFLOW
 
-DO NOT use the raw topic name or description as a search query. Derive focused queries from the plan.`;
+You have a LIMITED number of turns. Do NOT waste turns planning. Start searching IMMEDIATELY.
+
+**Workflow — repeat this cycle:**
+1. Search (WebSearch) for a focused query
+2. Fetch (WebFetch) the most promising result
+3. IMMEDIATELY save it as a JSON file (Write) — do NOT batch saves
+
+**Query strategy:**
+- Derive queries from the plan priorities AND the user's description
+- Break the description into specific searchable topics
+- Each query under 10 words
+
+**Save rules:**
+- Save EACH finding IMMEDIATELY after fetching — one search → one fetch → one save
+- Save as src_<short_hash>.json in the current directory
+- Do NOT wait to save all at once at the end — you will run out of turns
+
+Research depth: ${haunting.config.research.depth}
+Target: up to ${haunting.config.research.max_sources_per_cycle} sources.`;
 
   return prompt;
 }
@@ -79,7 +90,7 @@ export async function runResearch(
         allowedTools: ["WebSearch", "WebFetch", "Bash", "Read", "Write"],
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
-        maxTurns: 25,
+        maxTurns: 30,
         cwd: haunting.sourcesDir,
       },
     })) {

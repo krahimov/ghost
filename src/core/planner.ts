@@ -34,7 +34,7 @@ Then write the updated plan.md with:
         allowedTools: ["Read", "Write", "Glob"],
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
-        maxTurns: 20,
+        maxTurns: 30,
         cwd: haunting.path,
       },
     })) {

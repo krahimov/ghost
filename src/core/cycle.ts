@@ -9,6 +9,7 @@ import {
   logCycleStart,
   logCycleEnd,
   updateHauntingCycleCount,
+  insertSource,
 } from "../memory/store.js";
 import { runResearch } from "./researcher.js";
 import { runObserver } from "./observer.js";
@@ -20,8 +21,53 @@ import { logger } from "../utils/logger.js";
 import { loadGlobalConfig } from "../config/index.js";
 import { readContext, readPurpose } from "../memory/context.js";
 
+// --- Cycle lock (prevents overlapping runs on the same haunting) ---
+
+export function acquireCycleLock(haunting: Haunting): boolean {
+  const lockPath = path.join(haunting.path, "cycle.lock");
+  if (fs.existsSync(lockPath)) {
+    // Check if the lock is stale (older than 2 hours = something crashed)
+    try {
+      const lockData = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+      const lockAge = Date.now() - new Date(lockData.startedAt).getTime();
+      if (lockAge < 45 * 60 * 1000) {
+        return false; // Lock is fresh, another cycle is running
+      }
+      // Stale lock — remove it and proceed
+      logger.warn(`[lock] Stale lock found for "${haunting.id}" (${Math.round(lockAge / 60000)}m old), removing`);
+    } catch {
+      // Corrupt lock file, remove it
+    }
+  }
+  fs.writeFileSync(lockPath, JSON.stringify({
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+  }), "utf-8");
+  return true;
+}
+
+export function releaseCycleLock(haunting: Haunting): void {
+  const lockPath = path.join(haunting.path, "cycle.lock");
+  if (fs.existsSync(lockPath)) {
+    fs.unlinkSync(lockPath);
+  }
+}
+
+export function isCycleLocked(haunting: Haunting): boolean {
+  const lockPath = path.join(haunting.path, "cycle.lock");
+  if (!fs.existsSync(lockPath)) return false;
+  try {
+    const lockData = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+    const lockAge = Date.now() - new Date(lockData.startedAt).getTime();
+    return lockAge < 45 * 60 * 1000; // Fresh if under 2 hours
+  } catch {
+    return false;
+  }
+}
+
 export interface CycleResult {
   observationsAdded: number;
+  sourcesFetched: number;
   reflected: boolean;
   planUpdated: boolean;
   notificationsSent: number;
@@ -143,6 +189,22 @@ function printNextPriorities(plan: string): void {
 }
 
 export async function runCycle(haunting: Haunting): Promise<CycleResult> {
+  // Acquire lock to prevent overlapping runs
+  if (!acquireCycleLock(haunting)) {
+    logger.warn(`Cycle skipped for "${haunting.config.name}" — another cycle is already running`);
+    return {
+      observationsAdded: 0,
+      sourcesFetched: 0,
+      reflected: false,
+      planUpdated: false,
+      notificationsSent: 0,
+      journal: "",
+      plan: "",
+      reflections: "",
+      error: "Skipped: another cycle is already running",
+    };
+  }
+
   const cycleId = logCycleStart(haunting.id);
   const globalConfig = loadGlobalConfig();
   const startTime = Date.now();
@@ -151,6 +213,7 @@ export async function runCycle(haunting: Haunting): Promise<CycleResult> {
 
   const result: CycleResult = {
     observationsAdded: 0,
+    sourcesFetched: 0,
     reflected: false,
     planUpdated: false,
     notificationsSent: 0,
@@ -164,7 +227,7 @@ export async function runCycle(haunting: Haunting): Promise<CycleResult> {
     const journal = readJournal(haunting);
     const reflections = readReflections(haunting);
     const plan = readPlan(haunting);
-    const context = readContext();
+    const context = readContext(haunting);
     const purpose = readPurpose(haunting);
 
     logger.info(
@@ -186,6 +249,7 @@ export async function runCycle(haunting: Haunting): Promise<CycleResult> {
     poller.stop();
 
     const sourceCount = poller.getCount();
+    result.sourcesFetched = sourceCount;
     console.log(`  ✓ Research complete — ${sourceCount} sources collected\n`);
 
     // 3. Observer phase
@@ -273,10 +337,13 @@ export async function runCycle(haunting: Haunting): Promise<CycleResult> {
     }
     console.log(`  ✓ ${result.notificationsSent} notifications sent\n`);
 
-    // 7. Snapshot for history
+    // 7. Persist sources to SQLite before cleanup
+    persistSourcesToDb(haunting, cycleId);
+
+    // 8. Snapshot for history
     await saveSnapshot(haunting);
 
-    // 8. Clean up processed sources
+    // 9. Clean up processed source JSON files (data is now in SQLite)
     cleanupSources(haunting);
 
     // Update cycle count
@@ -302,12 +369,13 @@ export async function runCycle(haunting: Haunting): Promise<CycleResult> {
     console.log(`\n❌ Cycle failed: ${err}`);
   }
 
-  // Clean up status file
+  // Clean up status file and release lock
   clearCycleStatus(haunting);
+  releaseCycleLock(haunting);
 
   logCycleEnd(cycleId, {
     observationsAdded: result.observationsAdded,
-    sourcesFetched: 0,
+    sourcesFetched: result.sourcesFetched ?? 0,
     reflected: result.reflected,
     planItemsAdded: 0,
     notificationsSent: result.notificationsSent,
@@ -344,6 +412,46 @@ async function saveSnapshot(haunting: Haunting): Promise<void> {
   }
 
   logger.debug(`Snapshot saved to history/ for ${date}`);
+}
+
+/**
+ * Persist all source JSON files to SQLite before deleting them.
+ * This preserves the full research data (raw_excerpt, key_claims, entities)
+ * even after the JSON files are cleaned up.
+ */
+function persistSourcesToDb(haunting: Haunting, cycleId: number): void {
+  const files = fs
+    .readdirSync(haunting.sourcesDir)
+    .filter((f) => f.endsWith(".json"));
+
+  let persisted = 0;
+  for (const file of files) {
+    try {
+      const content = fs.readFileSync(path.join(haunting.sourcesDir, file), "utf-8");
+      const data = JSON.parse(content);
+
+      insertSource(haunting.id, {
+        url: data.source_url || data.url || "",
+        title: data.source_title || data.title || file,
+        source_type: data.source_type,
+        fetched_at: data.fetched_at || new Date().toISOString(),
+        relevance: data.relevance,
+        summary: data.summary,
+        raw_excerpt: data.raw_excerpt,
+        key_claims: data.key_claims,
+        entities: data.entities,
+        strategic_relevance: data.strategic_relevance,
+      }, cycleId);
+
+      persisted++;
+    } catch (err) {
+      logger.warn(`[sources] Failed to persist ${file}: ${err}`);
+    }
+  }
+
+  if (persisted > 0) {
+    logger.info(`[sources] Persisted ${persisted} sources to database`);
+  }
 }
 
 function cleanupSources(haunting: Haunting): void {

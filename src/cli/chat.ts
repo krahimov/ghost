@@ -6,7 +6,7 @@ import { readJournal, parseObservations } from "../memory/journal.js";
 import { readReflections } from "../memory/reflections.js";
 import { readPlan } from "../memory/plan.js";
 import { readContext, readPurpose } from "../memory/context.js";
-import { logger } from "../utils/logger.js";
+import { getSourcesForHaunting, getSourceCount } from "../memory/store.js";
 
 function buildChatSystemPrompt(
   hauntingName: string,
@@ -16,6 +16,7 @@ function buildChatSystemPrompt(
   context: string,
   purpose: string,
   sourceIndex: string,
+  sourceDetails: string,
 ): string {
   let prompt = `You are Ghost, a personal research analyst who has been continuously tracking the topic "${hauntingName}".
 `;
@@ -53,6 +54,13 @@ ${sourceIndex}
 `;
   }
 
+  if (sourceDetails) {
+    prompt += `
+## Source Details (from database — full excerpts and claims)
+${sourceDetails}
+`;
+  }
+
   prompt += `
 ## Response Guidelines
 
@@ -67,7 +75,8 @@ When answering questions:
 - Suggest what to research next if the question reveals a knowledge gap
 - You can answer strategic questions like "what are the biggest threats to our approach?" or "where are the market gaps?"
 - You can read files from the haunting directory for additional details (reports/, history/)
-- At the end of detailed answers, include a "Sources:" section listing all URLs referenced`;
+- At the end of detailed answers, include a "Sources:" section listing all URLs referenced
+- When asked about specific source details, use the Source Details section which contains raw excerpts and key claims from the database`;
 
   return prompt;
 }
@@ -97,6 +106,31 @@ function buildSourceIndex(journal: string): string {
   return index;
 }
 
+function buildSourceDetails(hauntingId: string): string {
+  const sources = getSourcesForHaunting(hauntingId, 50);
+  if (sources.length === 0) return "";
+
+  let details = "";
+  for (const src of sources) {
+    details += `### ${src.title}\n`;
+    details += `URL: ${src.url}\n`;
+    if (src.relevance) details += `Relevance: ${src.relevance}\n`;
+    if (src.strategic_relevance) details += `Strategic relevance: ${src.strategic_relevance}\n`;
+    if (src.key_claims && src.key_claims.length > 0) {
+      details += `Key claims:\n`;
+      for (const claim of src.key_claims) {
+        details += `  - ${claim}\n`;
+      }
+    }
+    if (src.raw_excerpt) {
+      details += `Excerpt: ${src.raw_excerpt.slice(0, 500)}\n`;
+    }
+    details += `\n`;
+  }
+
+  return details;
+}
+
 export const chatCommand = new Command("chat")
   .argument("<haunting>", "Haunting slug to chat with")
   .description("Chat with Ghost about accumulated knowledge")
@@ -106,19 +140,22 @@ export const chatCommand = new Command("chat")
       const journal = readJournal(haunting);
       const reflections = readReflections(haunting);
       const plan = readPlan(haunting);
-      const context = readContext();
+      const context = readContext(haunting);
       const purpose = readPurpose(haunting);
       const sourceIndex = buildSourceIndex(journal);
+      const sourceDetails = buildSourceDetails(haunting.id);
 
       const observations = parseObservations(journal);
+      const dbSourceCount = getSourceCount(haunting.id);
 
       console.log(`\n👻 Ghost Chat — "${haunting.config.name}"`);
       console.log(`   Knowledge: ${observations.length} observations`);
-      if (context) console.log(`   Context: loaded`);
+      console.log(`   Sources: ${dbSourceCount} in database`);
+      if (context) console.log(`   Context: loaded (project-specific)`);
       if (purpose) console.log(`   Purpose: loaded`);
       if (sourceIndex) {
-        const sourceCount = (sourceIndex.match(/^\[\d+\]/gm) || []).length;
-        console.log(`   Sources: ${sourceCount} indexed`);
+        const indexCount = (sourceIndex.match(/^\[\d+\]/gm) || []).length;
+        console.log(`   Source index: ${indexCount} URLs`);
       }
       console.log(`\nType your questions. Type "exit" or "quit" to leave.`);
       console.log(`Tip: Ask "what did you find?" or "what are the key threats?"\n`);
@@ -131,6 +168,7 @@ export const chatCommand = new Command("chat")
         context,
         purpose,
         sourceIndex,
+        sourceDetails,
       );
 
       const rl = readline.createInterface({

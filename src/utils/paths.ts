@@ -40,3 +40,11 @@ export function slugify(text: string, maxLength = 60): string {
 export function ensureDir(dir: string): void {
   fs.mkdirSync(dir, { recursive: true });
 }
+
+export function getPidPath(): string {
+  return path.join(getGhostHome(), "daemon.pid");
+}
+
+export function getDaemonLogPath(): string {
+  return path.join(getGhostHome(), "daemon.log");
+}
