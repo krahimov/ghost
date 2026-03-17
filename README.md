@@ -1,8 +1,8 @@
 # Ghost
 
-Autonomous, always-on research agent that compounds knowledge over time. Unlike one-shot research tools, Ghost continuously investigates topics over days and weeks, building a layered knowledge base with observations, reflections, and strategic insights.
+Ghost is an autonomous, always-on research agent that compounds knowledge over time. Unlike one-shot research tools, Ghost continuously investigates topics over days and weeks, building a layered knowledge base with observations, reflections, and strategic insights.
 
-Built on the [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk).
+Built on the [Claude Agent SDK](https://github.com/anthropics/-agent-sdk).
 
 ## How It Works
 
@@ -162,7 +162,7 @@ Global config lives at `~/.ghost/config.yaml`:
 ```yaml
 ghost:
   home: ~/.ghost
-  default_model: claude-opus-4-6
+  default_model: claude-sonnet-4-6
   log_level: info
 
 notifications:
@@ -187,7 +187,7 @@ Per-haunting config overrides are set in each haunting's `config.yaml`.
 
 - **Runtime**: Node.js 20+ / TypeScript 5
 - **Agent Framework**: [Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk)
-- **LLM**: Claude Opus 4.6 (research + observation), Claude Sonnet 4.5 (planning)
+- **LLM**: Claude Opus 4.6 (research + observation + planing)
 - **Storage**: better-sqlite3 for metadata and source persistence
 - **Scheduling**: node-cron for daemon mode
 - **CLI**: Commander + Inquirer

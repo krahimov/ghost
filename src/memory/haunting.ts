@@ -58,6 +58,11 @@ export function createHaunting(
   force = false,
 ): Haunting {
   const slug = slugify(name);
+
+  if (!slug || slug.length < 2) {
+    throw new Error(`Invalid haunting name "${name}" — slug "${slug}" is too short. Use a descriptive topic name.`);
+  }
+
   const hauntingDir = getHauntingDir(slug);
 
   if (fs.existsSync(hauntingDir)) {

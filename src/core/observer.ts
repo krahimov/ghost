@@ -41,8 +41,8 @@ Has purpose: ${purpose ? "yes" : "no"}`;
         allowedTools: ["Read", "Write", "Glob"],
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
-        model: "claude-opus-4-6",
-        maxTurns: 15,
+        model: "claude-sonnet-4-6",
+        maxTurns: 30,
         cwd: haunting.path,
       },
     })) {

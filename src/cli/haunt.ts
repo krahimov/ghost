@@ -345,7 +345,7 @@ Generate the purpose.md file that connects this research topic to their strategi
         allowedTools: [],
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
-        maxTurns: 3,
+        maxTurns: 10,
       },
     })) {
       if (message.type === "result") {

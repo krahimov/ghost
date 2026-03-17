@@ -13,7 +13,7 @@ export const GlobalConfigSchema = z.object({
     })
     .default({
       home: "~/.ghost",
-      default_model: "claude-opus-4-6",
+      default_model: "claude-sonnet-4-6",
       log_level: "info",
     }),
   notifications: z

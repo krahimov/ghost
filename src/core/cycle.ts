@@ -26,7 +26,7 @@ import { readContext, readPurpose } from "../memory/context.js";
 export function acquireCycleLock(haunting: Haunting): boolean {
   const lockPath = path.join(haunting.path, "cycle.lock");
   if (fs.existsSync(lockPath)) {
-    // Check if the lock is stale (older than 2 hours = something crashed)
+    // Check if the lock is stale (older than 45 minutes = something crashed)
     try {
       const lockData = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
       const lockAge = Date.now() - new Date(lockData.startedAt).getTime();
@@ -59,7 +59,7 @@ export function isCycleLocked(haunting: Haunting): boolean {
   try {
     const lockData = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
     const lockAge = Date.now() - new Date(lockData.startedAt).getTime();
-    return lockAge < 45 * 60 * 1000; // Fresh if under 2 hours
+    return lockAge < 45 * 60 * 1000; // Fresh if under 45 minutes
   } catch {
     return false;
   }
@@ -188,6 +188,19 @@ function printNextPriorities(plan: string): void {
   }
 }
 
+// Maximum time a cycle is allowed to run before being aborted (30 minutes)
+const CYCLE_TIMEOUT_MS = 30 * 60 * 1000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms / 60000}m`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
 export async function runCycle(haunting: Haunting): Promise<CycleResult> {
   // Acquire lock to prevent overlapping runs
   if (!acquireCycleLock(haunting)) {
@@ -245,7 +258,7 @@ export async function runCycle(haunting: Haunting): Promise<CycleResult> {
     });
 
     const poller = startSourcePolling(haunting);
-    await runResearch(haunting, plan, journal, context, purpose);
+    await withTimeout(runResearch(haunting, plan, journal, context, purpose), CYCLE_TIMEOUT_MS, "Research phase");
     poller.stop();
 
     const sourceCount = poller.getCount();
@@ -262,7 +275,7 @@ export async function runCycle(haunting: Haunting): Promise<CycleResult> {
       observationsAdded: 0,
     });
 
-    const updatedJournal = await runObserver(haunting, journal, reflections, context, purpose);
+    const updatedJournal = await withTimeout(runObserver(haunting, journal, reflections, context, purpose), CYCLE_TIMEOUT_MS, "Observer phase");
     result.observationsAdded = countNewObservations(journal, updatedJournal);
 
     printNewObservations(journal, updatedJournal);
@@ -284,7 +297,7 @@ export async function runCycle(haunting: Haunting): Promise<CycleResult> {
         observationsAdded: result.observationsAdded,
       });
 
-      await runReflector(haunting, updatedJournal, reflections);
+      await withTimeout(runReflector(haunting, updatedJournal, reflections), CYCLE_TIMEOUT_MS, "Reflector phase");
       result.reflected = true;
       console.log(`  ✓ Reflections updated\n`);
     } else {
@@ -306,7 +319,7 @@ export async function runCycle(haunting: Haunting): Promise<CycleResult> {
     const currentJournal = readJournal(haunting);
     const currentReflections = readReflections(haunting);
     const currentPlan = readPlan(haunting);
-    await runPlanner(haunting, currentJournal, currentReflections, currentPlan);
+    await withTimeout(runPlanner(haunting, currentJournal, currentReflections, currentPlan), CYCLE_TIMEOUT_MS, "Planner phase");
     result.planUpdated = true;
 
     const finalPlan = readPlan(haunting);

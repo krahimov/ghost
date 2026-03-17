@@ -1,0 +1,6 @@
+packages:
+  - packages/*
+  - web
+  - worker
+
+onlyBuiltDependencies: better-sqlite3,esbuild

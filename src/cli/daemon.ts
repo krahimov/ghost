@@ -42,6 +42,8 @@ function isDue(hauntingId: string, interval: string): boolean {
 async function runSchedulerTick(): Promise<void> {
   const hauntings = listHauntings().filter((h) => h.config.status === "active");
 
+  const cyclesToRun: Promise<void>[] = [];
+
   for (const haunting of hauntings) {
     const interval = haunting.config.schedule.interval;
 
@@ -60,15 +62,24 @@ async function runSchedulerTick(): Promise<void> {
 
     logger.info(`[daemon] Running cycle for "${haunting.config.name}" (schedule: ${interval})`);
 
-    try {
-      const result = await runCycle(haunting);
-      generateReport(haunting, result);
-      logger.info(
-        `[daemon] Cycle complete for "${haunting.config.name}": ${result.observationsAdded} observations`,
-      );
-    } catch (err) {
-      logger.error(`[daemon] Cycle failed for "${haunting.config.name}": ${err}`);
-    }
+    // Fire off cycles concurrently so one slow haunting doesn't block others
+    cyclesToRun.push(
+      runCycle(haunting)
+        .then((result) => {
+          generateReport(haunting, result);
+          logger.info(
+            `[daemon] Cycle complete for "${haunting.config.name}": ${result.observationsAdded} observations`,
+          );
+        })
+        .catch((err) => {
+          logger.error(`[daemon] Cycle failed for "${haunting.config.name}": ${err}`);
+        }),
+    );
+  }
+
+  // Wait for all concurrent cycles to settle before the tick returns
+  if (cyclesToRun.length > 0) {
+    await Promise.allSettled(cyclesToRun);
   }
 }
 
